@@ -10,7 +10,7 @@ Deterministic scripts + skills for OpenClaw workflows. Keep this repo as the sin
 ## Usage
 
 ```bash
-export GH_TOKEN=... # or ensure /etc/openclaw/creds/github_token exists
+export GH_TOKEN=... # or: export GH_TOKEN_FILE=/path/to/token
 bash scripts/run_checks.sh
 ```
 

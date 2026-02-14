@@ -2,20 +2,20 @@
 set -euo pipefail
 
 OWNER="${1:-haze2026ai}"
-TOKEN_FILE="/etc/openclaw/creds/github_token"
+TOKEN_FILE="${GH_TOKEN_FILE:-}"
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "gh CLI not found. Install with: apt-get install -y gh" >&2
   exit 2
 fi
 
-if [ -z "${GH_TOKEN:-}" ] && [ -f "$TOKEN_FILE" ]; then
+if [ -z "${GH_TOKEN:-}" ] && [ -n "$TOKEN_FILE" ] && [ -f "$TOKEN_FILE" ]; then
   export GH_TOKEN
   GH_TOKEN="$(cat "$TOKEN_FILE")"
 fi
 
 if [ -z "${GH_TOKEN:-}" ]; then
-  echo "GH_TOKEN not set and $TOKEN_FILE not found." >&2
+  echo "GH_TOKEN not set. Set GH_TOKEN or GH_TOKEN_FILE." >&2
   exit 2
 fi
 
