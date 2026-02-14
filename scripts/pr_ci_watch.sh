@@ -32,21 +32,37 @@ for repo in $repos; do
   fi
 
   while IFS=$'\t' read -r num head title; do
-    checks=$(gh pr checks "$num" --repo "$OWNER/$repo" --json name,status,conclusion --jq '.[] | "\(.name)\t\(.status)\t\(.conclusion)"') || true
-    if [ -z "$checks" ]; then
-      summary+="$OWNER/$repo#$num: no checks found\n"
+    sha=$(gh pr view "$num" --repo "$OWNER/$repo" --json headRefOid --jq .headRefOid) || true
+    if [ -z "$sha" ]; then
+      summary+="$OWNER/$repo#$num: unable to resolve head SHA\n"
+      fail=1
       continue
     fi
 
-    while IFS=$'\t' read -r name status conclusion; do
-      if [ "$status" != "COMPLETED" ] && [ "$status" != "completed" ]; then
-        summary+="$OWNER/$repo#$num: $name is $status\n"
-        fail=1
-      elif [ "$conclusion" != "SUCCESS" ] && [ "$conclusion" != "success" ] && [ "$conclusion" != "NEUTRAL" ] && [ "$conclusion" != "neutral" ]; then
-        summary+="$OWNER/$repo#$num: $name concluded $conclusion\n"
-        fail=1
-      fi
-    done <<< "$checks"
+    # Check runs
+    checks=$(gh api "repos/$OWNER/$repo/commits/$sha/check-runs" --jq '.check_runs[] | "\(.name)\t\(.status)\t\(.conclusion)"') || true
+    if [ -n "$checks" ]; then
+      while IFS=$'\t' read -r name status conclusion; do
+        if [ "$status" != "completed" ]; then
+          summary+="$OWNER/$repo#$num: $name is $status\n"
+          fail=1
+        elif [ "$conclusion" != "success" ] && [ "$conclusion" != "neutral" ] && [ "$conclusion" != "skipped" ]; then
+          summary+="$OWNER/$repo#$num: $name concluded $conclusion\n"
+          fail=1
+        fi
+      done <<< "$checks"
+    fi
+
+    # Commit status contexts
+    statuses=$(gh api "repos/$OWNER/$repo/commits/$sha/status" --jq '.statuses[] | "\(.context)\t\(.state)"') || true
+    if [ -n "$statuses" ]; then
+      while IFS=$'\t' read -r ctx state; do
+        if [ "$state" != "success" ] && [ "$state" != "neutral" ]; then
+          summary+="$OWNER/$repo#$num: $ctx is $state\n"
+          fail=1
+        fi
+      done <<< "$statuses"
+    fi
   done <<< "$prs"
 
 done
